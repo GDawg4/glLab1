@@ -10,7 +10,7 @@
 using namespace std;
 
 class gl {
-public:
+private:
     static const int bytesPerPixel = 3;
     const int fileHeaderSize = 14;
     const int infoHeaderSize = 40;
@@ -20,30 +20,30 @@ public:
     int viewPortWidth;
     int vPortX;
     int vPortY;
-    char* imageFileName = "bitmapImage.bmp";
+    char* imageFileName = "result.bmp";
     double defaultColor[3] = {120, 190, 200};
     double paintColor[3] = {255, 255, 255};
     unsigned char *list;
 
+public:
     gl(int h, int w){
-        height = h;
-        width = w;
-        glClear();
+        glCreateWindow(h, w);
     };
 
-    void glViewPort(int x, int y, int newWidth, int newHeight){
-        viewPortWidth = newWidth;
-        viewPortHeight = newHeight;
-        vPortX = x;
-        vPortY = y;
+    void glCreateWindow(int h, int w){
+        height = h;
+        width = w;
     }
 
-    void glVertex(int xToTransform, int yToTransform){
-        auto nx=int((xToTransform+1)*(viewPortWidth/2)+vPortX);
-        auto ny=int((yToTransform+1)*(viewPortHeight/2)+vPortY);
-        for (int k = 0; k < 3; k++){
-            *(list + nx*width*3 + ny*3 + k) = (unsigned char)paintColor[2-k];
+    bool glViewPort(int x, int y, int newWidth, int newHeight){
+        if (newWidth >= width && newHeight >= height){
+            viewPortWidth = newWidth;
+            viewPortHeight = newHeight;
+            vPortX = x;
+            vPortY = y;
+            return true;
         }
+        return false;
     }
 
     void glClear(){
@@ -61,6 +61,18 @@ public:
         defaultColor[1] = g * 255;
         defaultColor[2] = b * 255;
     };
+
+    bool glVertex(int xToTransform, int yToTransform){
+        if ((xToTransform >= -1 && xToTransform<=1) || (yToTransform >= -1 && yToTransform<=1)){
+            auto nx=int((xToTransform+1)*(viewPortWidth/2)+vPortX);
+            auto ny=int((yToTransform+1)*(viewPortHeight/2)+vPortY);
+            for (int k = 0; k < bytesPerPixel; k++){
+                *(list + nx*width*bytesPerPixel + ny*bytesPerPixel + k) = (unsigned char)paintColor[2-k];
+            }
+            return true;
+        }
+        return false;
+    }
 
     void glColor(double r, double g, double b){
         paintColor[0] = r * 255;
