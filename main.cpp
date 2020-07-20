@@ -6,12 +6,19 @@ using namespace std;
 
 int main()
 {
-    gl myGl(5, 5);
-    myGl.glViewPort(0, 0, 5, 5);
-    myGl.glClearColor(0.8, 0.4, 0);
+    int height = 25;
+    int width = 25;
+    gl myGl(height, width);
+    myGl.glViewPort(0, 0, height, width);
     myGl.glClear();
-    myGl.glVertex(0, 0);
-    myGl.glColor(1, 0, 0.5);
-    myGl.glVertex(1,1);
+    //myGl.glLine(-1, -1, 1, 1);
+    //myGl.glLine(-1, 1, 1, -1);
+    //myGl.glLine(0, -1, 0, 1);
+    //myGl.glLine(-1, 0, 1, 0);
+    myGl.glColor(0.5, 0.5,0.5);
+    //myGl.glLine(-1, -1, 1,0);
+    //myGl.glLine(-1, -1, 0,1);
+    myGl.glLine(1, -1, -1, 1);
+    //myGl.glVertexCoord(19, 19);
     myGl.glFinish();
 }

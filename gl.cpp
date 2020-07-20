@@ -4,9 +4,8 @@
 
 #include <stdio.h>
 #include <iostream>
-#include <string>
-#include "gl.h"
-#include <vector>
+#include <algorithm>
+#include <math.h>
 using namespace std;
 
 class gl {
@@ -33,6 +32,11 @@ public:
     void glCreateWindow(int h, int w){
         height = h;
         width = w;
+        viewPortHeight = 10;
+        viewPortWidth = 10;
+        vPortX = 0;
+        vPortY = 0;
+        list = new unsigned char[height*width*bytesPerPixel]();
     }
 
     bool glViewPort(int x, int y, int newWidth, int newHeight){
@@ -47,10 +51,10 @@ public:
     }
 
     void glClear(){
-        for (int i = 0; i < height; i++){
-            for (int j = 0; j < width; j++){
-                for (int k = 0; k < 3; k++){
-                    *(list + i*width*3 + j*3 + k) = (unsigned char)defaultColor[2-k];
+        for(int i=0; i<height; i++){
+            for(int j=0; j<width; j++){
+                for (int k = 0; k < bytesPerPixel; k++) {
+                    list[i*width*bytesPerPixel+j*bytesPerPixel+k] = (unsigned char)defaultColor[2-k];
                 }
             }
         }
@@ -64,14 +68,18 @@ public:
 
     bool glVertex(int xToTransform, int yToTransform){
         if ((xToTransform >= -1 && xToTransform<=1) || (yToTransform >= -1 && yToTransform<=1)){
-            auto nx=int((xToTransform+1)*(viewPortWidth/2)+vPortX);
-            auto ny=int((yToTransform+1)*(viewPortHeight/2)+vPortY);
-            for (int k = 0; k < bytesPerPixel; k++){
-                *(list + nx*width*bytesPerPixel + ny*bytesPerPixel + k) = (unsigned char)paintColor[2-k];
-            }
+            auto nx=round((xToTransform+1)*(viewPortWidth/2)+vPortX);
+            auto ny=round((yToTransform+1)*(viewPortHeight/2)+vPortY);
+            glVertexCoord(nx, ny);
             return true;
         }
         return false;
+    }
+
+    void glVertexCoord(int xToPaint, int yToPaint){
+        for (int k = 0; k < bytesPerPixel; k++){
+            list[yToPaint*width*bytesPerPixel+xToPaint*bytesPerPixel+k] = (unsigned char)paintColor[2-k];
+        }
     }
 
     void glColor(double r, double g, double b){
@@ -79,6 +87,72 @@ public:
         paintColor[1] = g * 255;
         paintColor[2] = b * 255;
     };
+
+    void glLine(double xStart, double yStart, double xFinish, double yFinish){
+        bool isBackwards = xStart > xFinish;
+
+        auto trueXStart = (isBackwards) ? xFinish : xStart;
+        auto trueXFinish = (isBackwards) ? xStart : xFinish;
+        auto trueYStart = (isBackwards) ? yFinish : yStart;
+        auto trueYFinish = (isBackwards) ? yStart : yFinish;
+
+        auto pixelXStart=round((trueXStart+1)*(viewPortWidth/2)+vPortX) < width ? round((trueXStart+1)*(viewPortWidth/2)+vPortX) : round((trueXStart+1)*(viewPortWidth/2)+vPortX) - 1;
+        auto pixelYStart=round((trueYStart+1)*(viewPortHeight/2)+vPortY) < height ? round((trueYStart+1)*(viewPortHeight/2)+vPortY) : round((trueYStart+1)*(viewPortHeight/2)+vPortY) - 1;
+        auto pixelXFinish=round((trueXFinish+1)*(viewPortWidth/2)+vPortX) < width ? round((trueXFinish+1)*(viewPortWidth/2)+vPortX) : round((trueXFinish+1)*(viewPortWidth/2)+vPortX) - 1;
+        auto pixelYFinish=round((trueYFinish+1)*(viewPortHeight/2)+vPortY) < height ? round((trueYFinish+1)*(viewPortHeight/2)+vPortY) : round((trueYFinish+1)*(viewPortHeight/2)+vPortY) - 1;
+
+        std::cout << pixelXStart << '\n';
+        std::cout << pixelYStart << '\n';
+
+        std::cout << pixelXFinish << '\n';
+        std::cout << pixelYFinish << '\n';
+
+        if (pixelXFinish == pixelXStart){
+            for(int i=pixelYStart; i <= pixelYFinish; i++){
+                glVertexCoord(pixelXStart, i);
+                //std::cout << pixelXFinish << ' ' << i <<'\n';
+            }
+        } else if (pixelYFinish == pixelYStart){
+            for(int i=pixelXStart; i <= pixelXFinish; i++){
+                glVertexCoord(i, pixelYStart);
+                //std::cout << i << ' ' << pixelYStart <<'\n';
+            }
+        } else{
+            auto dy = (double)(pixelYFinish-pixelYStart);
+            auto dx = (double)(pixelXFinish-pixelXStart);
+            auto slope = dy/dx;
+
+            std::cout << '\n' << slope <<'\n';
+
+            bool isSteep = (dy > dx);
+
+            double offset = 0;
+            double limit = 0.5;
+
+            int currentY = !isSteep ? pixelYStart : pixelXStart;
+            int start = !isSteep ? pixelXStart : pixelYStart;
+            int finish = !isSteep ? pixelXFinish : pixelYFinish;
+            slope = !isSteep ? dy / dx : dx / dy;
+
+            std::cout << '\n' << isSteep << 't' << '\n';
+            std::cout << start << 's' << '\n';
+            std::cout << finish << 'f' << '\n' << '\n';
+
+            for(int i=start; i <= finish ; i++){
+                if (isSteep){
+                    glVertexCoord((int)(currentY), i);
+                } else{
+                    glVertexCoord(i, (int)(currentY));
+                }
+                std::cout << i << ' ' << (int)(currentY) <<'\n';
+                offset += abs(slope);
+                if (abs(offset) >= limit){
+                    trueYFinish>trueYStart? currentY++ : currentY--;
+                    limit += 1;
+                }
+            }
+        }
+    }
 
     void glFinish(){
         generateBitmapImage((unsigned char *)list, height, width, imageFileName);
