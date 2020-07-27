@@ -10,6 +10,7 @@
 #include <sstream>
 #include <vector>
 #include <typeinfo>
+#include <iomanip>
 #define PI 3.14159265
 using namespace std;
 
@@ -123,64 +124,83 @@ public:
         std:: cout << pixelYFinish << 'Y' << '\n';*/
 
         if (pixelXFinish == pixelXStart){
-            for(int i=pixelYStart; i <= pixelYFinish; i++){
-                glVertexCoord(pixelXStart, i);
-            }
+            glLineVertical(pixelXStart, pixelYStart, pixelYFinish);
         } else if (pixelYFinish == pixelYStart){
-            for(int i=pixelXStart; i <= pixelXFinish; i++){
-                glVertexCoord(i, pixelYStart);
-            }
-        } else{
-            auto dy = (double)(pixelYFinish-pixelYStart);
-            auto dx = (double)(pixelXFinish-pixelXStart);
-            auto slope = dy/dx;
+            glLineHorizontal(pixelYStart, pixelXStart, pixelXFinish);
+        } else {
+            glLineCoordDiagonal(pixelXStart, pixelYStart, pixelXFinish, pixelYFinish);
+        }
+    }
 
-            /*std::cout << dy << ' ' << dx << '\n';
-            std::cout << '\n' << slope <<'\n';*/
+    void glLineVertical(int xCoord, int yStart, int yFinish){
+        int pixelXStart = xCoord;
+        int pixelYStart = yStart;
+        int pixelYFinish = yFinish;
 
-            bool isSteep = (abs(dy) > abs(dx));
+        for(int i=pixelYStart; i <= pixelYFinish; i++){
+            glVertexCoord(pixelXStart, i);
+        }
+    }
 
-            int testX = pixelXStart;
-            int testY = pixelYStart;
-            int testX2 = pixelXFinish;
-            int testY2 = pixelYFinish;
+    void glLineHorizontal(int yCoord, int xStart, int xFinish){
+        int pixelYStart = yCoord;
+        int pixelXStart = xStart;
+        int pixelXFinish = xFinish;
 
-            if (isSteep){
-                std::swap(testX, testY);
-                std::swap(testX2, testY2);
-            }
+        for(int i=pixelXStart; i <= pixelXFinish; i++){
+            glVertexCoord(i, pixelYStart);
+        }
+    }
 
-            if (isSteep && dy/dx < 0){
-                std::swap(testX, testX2);
-                std::swap(testY, testY2);
-            }
+    void glLineCoordDiagonal(int pixelXStart, int pixelYStart, int pixelXFinish, int pixelYFinish){
+        auto dy = (double)(pixelYFinish-pixelYStart);
+        auto dx = (double)(pixelXFinish-pixelXStart);
+        auto slope = dy/dx;
 
-            double offset = 0;
-            double limit = 0.5;
-            int currentY = testY;
-            int start = testX;
-            int finish = testX2;
+        /*std::cout << dy << ' ' << dx << '\n';
+        std::cout << '\n' << slope <<'\n';*/
 
-            slope = !isSteep ? dy / dx : dx / dy;
-            /*std::cout << '\n' << isSteep << 't' << '\n';
-            std::cout << start << 's' << '\n';
-            std::cout << finish << 'f' << '\n' << '\n';*/
+        bool isSteep = (abs(dy) > abs(dx));
 
-            for(int i=start; i <= finish ; i++){
-                if (isSteep){
-                    glVertexCoord((int)(currentY), i);
-                } else{
-                    glVertexCoord(i, (int)(currentY));
-                }
-                /*std::cout << i << ' ' << (int)(currentY) <<'\n';*/
-                offset += abs(slope);
-                if (abs(offset) >= limit){
-                    (pixelYFinish>pixelYStart)? currentY++ : currentY--;
-                    limit += 1;
-                }
-            }
+        int testX = pixelXStart;
+        int testY = pixelYStart;
+        int testX2 = pixelXFinish;
+        int testY2 = pixelYFinish;
+
+        if (isSteep){
+            std::swap(testX, testY);
+            std::swap(testX2, testY2);
         }
 
+        if (isSteep && dy/dx < 0){
+            std::swap(testX, testX2);
+            std::swap(testY, testY2);
+        }
+
+        double offset = 0;
+        double limit = 0.5;
+        int currentY = testY;
+        int start = testX;
+        int finish = testX2;
+
+        slope = !isSteep ? dy / dx : dx / dy;
+        /*std::cout << '\n' << isSteep << 't' << '\n';
+        std::cout << start << 's' << '\n';
+        std::cout << finish << 'f' << '\n' << '\n';*/
+
+        for(int i=start; i <= finish ; i++){
+            if (isSteep){
+                glVertexCoord((int)(currentY), i);
+            } else{
+                glVertexCoord(i, (int)(currentY));
+            }
+            /*std::cout << i << ' ' << (int)(currentY) <<'\n';*/
+            offset += abs(slope);
+            if (abs(offset) >= limit){
+                (pixelYFinish>pixelYStart)? currentY++ : currentY--;
+                limit += 1;
+            }
+        }
     }
 
     void glObj(string fileName) {
@@ -276,12 +296,11 @@ public:
     }
 
     void glPoly(vector<vector<int>> points){
-        if (points.size() <= 3){
+        if (points.size() < 3){
             auto startPoints = points;
             int size = points.size();
             vector<vector<int>> convexPoints;
             vector<vector<int>> concavePoints;
-            int j = 0;
 
             for (int i = 0; i < size; i++) {
                 auto start = startPoints[i];
@@ -292,12 +311,12 @@ public:
                 auto yFinish = finish[1];
                 glLineCoord(xStart, yStart, xFinish, yFinish);
             }
+            //glPaintTriangle(startPoints[0], startPoints[1], startPoints[2]);
         } else{
             auto startPoints = points;
             int size = points.size();
             vector<vector<int>> convexPoints;
             vector<vector<int>> concavePoints;
-            int j = 0;
 
             for (int i = 0; i < size; i++) {
                 auto start = startPoints[i];
@@ -309,7 +328,8 @@ public:
                 glLineCoord(xStart, yStart, xFinish, yFinish);
             }
 
-            for (int i = 0; i < size; i++) {auto prior = startPoints[i];
+            for (int i = 0; i < size; i++) {
+                auto prior = startPoints[i];
                 auto center = startPoints[(i+1)%size];
                 auto next = startPoints[(i+2)%size];
 
@@ -317,6 +337,8 @@ public:
                     glLineCoord(next[0], next[1], prior[0], prior[1]);
                     startPoints.erase(startPoints.begin()+(i+1)%size);
                     size = startPoints.size();
+                    glPaintTriangle(prior, center, next);
+                    std::cout << size << '\n';
                 }
             }
             glPoly(startPoints);
@@ -336,8 +358,102 @@ public:
         return (number > 0);
     };
 
-    void glPaintTriangle(int firstCoord, int secondCoord, int thirdCoord){
-        
+    void glPaintTriangle(vector<int> firstCoord, vector<int> secondCoord, vector<int> thirdCoord){
+        if (firstCoord[1] == secondCoord[1] && thirdCoord[1] > firstCoord[1]){
+            glPaintFlatBottomTriangle(thirdCoord, firstCoord, secondCoord);
+        } else if (firstCoord[1] == thirdCoord[1] && secondCoord[1] > firstCoord[1]){
+            glPaintFlatBottomTriangle(secondCoord, firstCoord, thirdCoord);
+        } else if (thirdCoord[1] == secondCoord[1] && firstCoord[1] > thirdCoord[1]){
+            glPaintFlatBottomTriangle(firstCoord, thirdCoord, secondCoord);
+        } else if (firstCoord[1] == secondCoord[1] && thirdCoord[1] < firstCoord[1]){
+            glPaintFlatTopTriangle(thirdCoord, firstCoord, secondCoord);
+        } else if (firstCoord[1] == thirdCoord[1] && secondCoord[1] < firstCoord[1]){
+            glPaintFlatTopTriangle(secondCoord, firstCoord, thirdCoord);
+        } else if (thirdCoord[1] == secondCoord[1] && firstCoord[1] < thirdCoord[1]){
+            glPaintFlatTopTriangle(firstCoord, thirdCoord, secondCoord);
+        }else{
+            glSplitTriangle(firstCoord, secondCoord, thirdCoord);
+        }
+    }
+
+    bool glSplitTriangle(vector<int> firstPoint, vector<int> secondPoint, vector<int> thirdPoint){
+
+        vector<int> highestPoint;
+        vector<int> middlePoint;
+        vector<int> lowestPoint;
+
+        if (firstPoint[1] > secondPoint[1] && secondPoint[1] > thirdPoint[1]){
+            highestPoint = firstPoint;
+            middlePoint = secondPoint;
+            lowestPoint = thirdPoint;
+        } else if (firstPoint[1] > thirdPoint[1] && thirdPoint[1] > secondPoint[1]){
+            highestPoint = firstPoint;
+            middlePoint = thirdPoint;
+            lowestPoint = secondPoint;
+        } else if (secondPoint[1] > firstPoint[1] && firstPoint[1] > thirdPoint[1]){
+            highestPoint = secondPoint;
+            middlePoint = firstPoint;
+            lowestPoint = thirdPoint;
+        } else if (secondPoint[1] > thirdPoint[1] && thirdPoint[1] > firstPoint[1]){
+            highestPoint = secondPoint;
+            middlePoint = thirdPoint;
+            lowestPoint = firstPoint;
+        } else if (thirdPoint[1] > firstPoint[1] && firstPoint[1] > secondPoint[1]){
+            highestPoint = thirdPoint;
+            middlePoint = firstPoint;
+            lowestPoint = secondPoint;
+        } else if (thirdPoint[1] > secondPoint[1] && secondPoint[1] > firstPoint[1]){
+            highestPoint = thirdPoint;
+            middlePoint = secondPoint;
+            lowestPoint = firstPoint;
+        }
+
+        /*std::cout << highestPoint[0] << ' ' << highestPoint[1] << '\n';
+        std::cout << middlePoint[0] << ' ' << middlePoint[1] << '\n';
+        std::cout << lowestPoint[0] << ' ' << lowestPoint[1] << '\n';*/
+
+        double otherMiddlePointX = ((double)(highestPoint[0]-lowestPoint[0])/(highestPoint[1]-lowestPoint[1]))*(middlePoint[1]-highestPoint[1]);
+        vector<int> otherMiddlePoint = {(int)round(otherMiddlePointX)+highestPoint[0], middlePoint[1]};
+
+        glLineHorizontal(middlePoint[1], otherMiddlePoint[0], middlePoint[0]);
+        glPaintFlatBottomTriangle(highestPoint, otherMiddlePoint, middlePoint);
+        glPaintFlatTopTriangle(lowestPoint, otherMiddlePoint, middlePoint);
+    }
+
+    void glPaintFlatTopTriangle(vector<int> bottomPoint, vector<int> firstPoint, vector<int> secondPoint){
+        if (firstPoint[0] > secondPoint[0]){
+            std::swap(firstPoint, secondPoint);
+        }
+
+        double inverseSlope1 = (double)(firstPoint[0] - bottomPoint[0])/(double)(firstPoint[1] - bottomPoint[1]);
+        double inverseSlope2 = (double)(secondPoint[0] - bottomPoint[0])/(double)(secondPoint[1] - bottomPoint[1]);
+
+        double currentX1 = bottomPoint[0];
+        double currentX2 = bottomPoint[0];
+
+        for (int scanLineY = bottomPoint[1]; scanLineY <= firstPoint[1] ; ++scanLineY) {
+            glLineHorizontal(scanLineY, (int)currentX1, (int)currentX2);
+            currentX1 += inverseSlope1;
+            currentX2 += inverseSlope2;
+        }
+    }
+
+    void glPaintFlatBottomTriangle(vector<int> topPoint, vector<int> firstPoint, vector<int> secondPoint){
+        if (firstPoint[0] > secondPoint[0]){
+            std::swap(firstPoint, secondPoint);
+        }
+
+        double inverseSlope1 = (double)(firstPoint[0] - topPoint[0])/(double)(firstPoint[1] - topPoint[1]);
+        double inverseSlope2 = (double)(secondPoint[0] - topPoint[0])/(double)(secondPoint[1] - topPoint[1]);
+
+        double currentX1 = topPoint[0];
+        double currentX2 = topPoint[0];
+
+        for (int scanLineY = topPoint[1]; scanLineY >= firstPoint[1] ; --scanLineY) {
+            glLineHorizontal(scanLineY, (int)currentX1, (int)currentX2);
+            currentX1 -= inverseSlope1;
+            currentX2 -= inverseSlope2;
+        }
     }
 
     void glFinish(){
