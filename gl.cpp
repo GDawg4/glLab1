@@ -11,6 +11,11 @@
 #include <vector>
 #include <typeinfo>
 #include <iomanip>
+#include <type_traits>
+#include <typeinfo>
+#include <string>
+#include <cstdlib>
+#include <limits>
 #define PI 3.14159265
 using namespace std;
 
@@ -29,6 +34,7 @@ private:
     double defaultColor[3] = {0, 0, 0};
     double paintColor[3] = {255, 255, 255};
     unsigned char *list;
+    int *zBuffer;
 
 public:
     gl(int h, int w){
@@ -43,6 +49,7 @@ public:
         vPortX = 0;
         vPortY = 0;
         list = new unsigned char[height*width*bytesPerPixel]();
+        zBuffer = new int[height*width]();
     }
 
     bool glViewPort(int x, int y, int newWidth, int newHeight){
@@ -62,6 +69,7 @@ public:
                 for (int k = 0; k < bytesPerPixel; k++) {
                     list[i*width*bytesPerPixel+j*bytesPerPixel+k] = (unsigned char)defaultColor[2-k];
                 }
+                zBuffer[i*width+j] = -std::numeric_limits<int>::max();
             }
         }
     }
@@ -88,10 +96,10 @@ public:
         }
     }
 
-    void glColor(double r, double g, double b){
-        paintColor[0] = r * 255;
-        paintColor[1] = g * 255;
-        paintColor[2] = b * 255;
+    void glColor(vector<double> newColor){
+        paintColor[0] = newColor[0] * 255;
+        paintColor[1] = newColor[1] * 255;
+        paintColor[2] = newColor[2] * 255;
     };
 
     void glLine(double xStart, double yStart, double xFinish, double yFinish){
@@ -203,14 +211,16 @@ public:
         }
     }
 
-    void glObj(string fileName) {
+    void glObj(string fileName, bool isWireframe = false) {
         string line;
         string v;
         vector<vector<double>> points;
         vector<vector<double>> lines;
         vector<vector<double>> faces;
 
-        ifstream myFile (R"(C:\\Users\\Rodrigo Garoz\\CLionProjects\\test\\lego.obj)");
+        vector<int> light = {0, 0, 1};
+
+        ifstream myFile (R"(C:\\Users\\Rodrigo Garoz\\CLionProjects\\test\\male_head.obj)");
         while(!myFile.eof()){
             getline (myFile,line);
             if (line[0] =='v'){
@@ -256,16 +266,20 @@ public:
             }
         }
 
-        double scaleX = 5;
-        double scaleY = 5;
-        double translateX = 500;
-        double translateY = 500;
+        double scaleX = 50;
+        double scaleY = 50;
+        double scaleZ = 50;
+        double translateX = 1000;
+        double translateY = 1000;
+        double translateZ = 0;
 
         /*for (auto & element : points){
             glVertexCoord((int)(scaleX*element[0] + translateX), (int)(scaleY*element[1] + translateY));
         }*/
         int n = 0;
         for (auto & element : faces){
+            vector<vector<int>> polyPoints;
+            vector<int> onePoint;
             int size = element.size();
             int adjusted;
             int nextAdjusted;
@@ -278,21 +292,86 @@ public:
 
                 auto xStart = (int)round(start[0]*scaleX + translateX);
                 auto yStart = (int)round(start[1]*scaleY + translateY);
+                auto zStart = (int)round(start[2]*scaleZ + translateZ);
                 auto xFinish = (int)round(finish[0]*scaleX + translateX);
                 auto yFinish = (int)round(finish[1]*scaleY + translateY);
 
-                glLineCoord(xStart, yStart, xFinish, yFinish);
-                /*std::cout << ' ' << adjusted << ' ' << nextAdjusted << ' ' << '\n';
-                std::cout << ' ' << xStart << ' ' << yStart << ' ' << xFinish << ' ' << yFinish << '\n';*/
+                //glLineCoord(xStart, yStart, xFinish, yFinish);
+                if (!isWireframe){
+                    polyPoints.push_back({xStart, yStart, zStart});
+                }
             }
-            /*++n;
-            std::cout << '\n';*/
-            /*if (n == 1241){
-                glLineCoord(0, 0, 200, 100);
-                break;
-            }*/
-            //cout << points.size() << '\n';
+            if (!isWireframe){
+                auto v0 = glVectorIntToDouble(polyPoints[0]);
+                auto v1 = glVectorIntToDouble(polyPoints[1]);
+                auto v2 = glVectorIntToDouble(polyPoints[2]);
+                auto newLight = glVectorIntToDouble(light);
+                //std::cout << v0[0] << ' ' << v0[1] << ' ' << v0[2] <<'\n';
+                //std::cout << v1[0] << ' ' << v1[1] << ' ' << v1[2] <<'\n';
+                //std::cout << v2[0] << ' ' << v2[2] << ' ' << v2[2] <<'\n';
+
+                vector<double> v0v1 = glSubstractVectors(v0, v1);
+                vector<double> v0v2 = glSubstractVectors(v0, v2);
+                //std::cout << v0v1[0] << ' ' << v0v1[1] << ' ' << v0v1[2] <<'\n';
+                //std::cout << v0v2[0] << ' ' << v0v2[1] << ' ' << v0v2[2] <<'\n';
+
+                vector<double> normal = glCrossProduct(v0v1, v0v2);
+                //std::cout << normal[0] << ' ' << normal[1] << ' ' << normal[2] <<'\n';
+                //std::cout << std::setprecision(5) << glGetNorm(normal) << '\n';
+
+                normal = glMultiplyVectorWithConstant(normal, 1/glGetNorm(normal));
+                double intensity = glPointProduct(normal, newLight);
+                //std::cout << std::setprecision(5) << intensity << '\n';
+                glColor({intensity, intensity, intensity});
+                glPoly(polyPoints);
+                polyPoints.clear();
+            }
         }
+    }
+
+    vector<double> glVectorIntToDouble(vector<int> vector){
+        std::vector<double> test;
+        for (auto & element:vector) {
+            test.push_back((double)element);
+        }
+        return test;
+    }
+
+    vector<int> glVectorDoubleToInt(vector<double> vector){
+        std::vector<int> test;
+        for (auto & element:vector) {
+            test.push_back((int)element);
+        }
+        return test;
+    }
+
+    vector<double> glTransform(vector<double> point, vector<double> scale = {1, 1, 1}, vector<double> translate = {0, 0, 0}){
+        return {point[0]*scale[0]+translate[0], point[1]*scale[1]+translate[1], point[2]*scale[2]+translate[2]};
+    }
+
+    vector<double> glSubstractVectors(vector<double> start, vector<double> end){
+        return {end[0] - start[0], end[1] - start[1], end[2] - start[2]};
+    }
+
+    vector<double> glCrossProduct(vector<double> firstPoint, vector<double> secondPoint){
+        return {firstPoint[1]*secondPoint[2]-firstPoint[2]*secondPoint[1],
+                firstPoint[2]*secondPoint[0]-firstPoint[0]*secondPoint[2],
+                firstPoint[0]*secondPoint[1]-firstPoint[1]*secondPoint[0]};
+    }
+
+    vector<double> glMultiplyVectorWithConstant(vector<double> vector, double constant){
+        auto v0 = (vector[0]*constant);
+        auto v1 = (vector[1]*constant);
+        auto v2 = (vector[2]*constant);
+        return {v0, v1, v2};
+    }
+
+    double glPointProduct(vector<double> vector1, vector<double> vector2){
+        return vector1[0]*vector2[0]+vector1[1]*vector2[1]+vector1[2]*vector2[2];
+    }
+
+    double glGetNorm(vector<double> vector){
+        return sqrt(pow(vector[0], 2)+pow(vector[1], 2)+pow(vector[2], 2));
     }
 
     void glPoly(vector<vector<int>> points){
@@ -309,7 +388,7 @@ public:
                 auto yStart = start[1];
                 auto xFinish = finish[0];
                 auto yFinish = finish[1];
-                glLineCoord(xStart, yStart, xFinish, yFinish);
+                //glLineCoord(xStart, yStart, xFinish, yFinish);
             }
             //glPaintTriangle(startPoints[0], startPoints[1], startPoints[2]);
         } else{
@@ -317,6 +396,7 @@ public:
             int size = points.size();
             vector<vector<int>> convexPoints;
             vector<vector<int>> concavePoints;
+            int convexSize = convexPoints.size();
 
             for (int i = 0; i < size; i++) {
                 auto start = startPoints[i];
@@ -325,7 +405,7 @@ public:
                 auto yStart = start[1];
                 auto xFinish = finish[0];
                 auto yFinish = finish[1];
-                glLineCoord(xStart, yStart, xFinish, yFinish);
+                //glLineCoord(xStart, yStart, xFinish, yFinish);
             }
 
             for (int i = 0; i < size; i++) {
@@ -338,10 +418,12 @@ public:
                     startPoints.erase(startPoints.begin()+(i+1)%size);
                     size = startPoints.size();
                     glPaintTriangle(prior, center, next);
-                    std::cout << size << '\n';
+                    //std::cout << size << '\n';
                 }
             }
-            glPoly(startPoints);
+            if (convexSize > 0){
+                glPoly(startPoints);
+            }
         }
     }
 
@@ -453,6 +535,42 @@ public:
             glLineHorizontal(scanLineY, (int)currentX1, (int)currentX2);
             currentX1 -= inverseSlope1;
             currentX2 -= inverseSlope2;
+        }
+    }
+
+    vector<double> glBarycentricCoordinates(vector<int> A, vector<int> B, vector<int> C, vector<int> P){
+        double u = (
+                (double)((B[1]-C[1])*(P[0]-C[0]) + (C[0]-B[0])*(P[1]-C[1]))
+                /
+                ((B[1]-C[1])*(A[0]-C[0]) + (C[0]-B[0])*(A[1]-C[1]))
+                );
+
+        auto v = (
+                (double)((C[1]-A[1])*(P[0]-C[0]) + (A[0]-C[0])*(P[1]-C[1]))
+                /
+                ((B[1]-C[1])*(A[0]-C[0]) + (C[0]-B[0])*(A[1]-C[1]))
+        );
+
+        auto w = 1 - u - v;
+
+        return {u, v, w};
+    }
+
+    void glPaintBuffer(){
+        int minZ = -std::numeric_limits<int>::max();
+        int maxZ = std::numeric_limits<int>::max();
+
+        for(int i=0; i<height; i++){
+            for(int j=0; j<width; j++){
+                if(zBuffer[i*width+j] != -std::numeric_limits<int>::max()){
+                    if (zBuffer[i*width+j] < minZ){
+                        minZ = zBuffer[i*width+j];
+                    }
+                    if (zBuffer[i*width+j] > maxZ){
+                        maxZ = zBuffer[i*width+j];
+                    }
+                }
+            }
         }
     }
 
