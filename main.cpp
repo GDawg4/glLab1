@@ -6,8 +6,8 @@ using namespace std;
 
 int main()
 {
-    int height = 6000;
-    int width = 6000;
+    int height = 1000;
+    int width = 1000;
     gl myGl(height, width);
     myGl.glViewPort(0, 0, width, height);
     myGl.glClear();

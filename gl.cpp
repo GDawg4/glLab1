@@ -220,7 +220,7 @@ public:
 
         vector<int> light = {0, 0, 1};
 
-        ifstream myFile (R"(C:\\Users\\Rodrigo Garoz\\CLionProjects\\test\\male_head.obj)");
+        ifstream myFile (R"(C:\\Users\\Rodrigo Garoz\\CLionProjects\\test\\model.obj)");
         while(!myFile.eof()){
             getline (myFile,line);
             if (line[0] =='v'){
@@ -266,11 +266,11 @@ public:
             }
         }
 
-        double scaleX = 50;
-        double scaleY = 50;
-        double scaleZ = 50;
-        double translateX = 1000;
-        double translateY = 1000;
+        double scaleX = 300;
+        double scaleY = 300;
+        double scaleZ = 300;
+        double translateX = 500;
+        double translateY = 500;
         double translateZ = 0;
 
         /*for (auto & element : points){
@@ -323,10 +323,11 @@ public:
                 double intensity = glPointProduct(normal, newLight);
                 //std::cout << std::setprecision(5) << intensity << '\n';
                 glColor({intensity, intensity, intensity});
-                glPoly(polyPoints);
+                glPoly(polyPoints, intensity);
                 polyPoints.clear();
             }
         }
+        glPaintBuffer();
     }
 
     vector<double> glVectorIntToDouble(vector<int> vector){
@@ -374,7 +375,7 @@ public:
         return sqrt(pow(vector[0], 2)+pow(vector[1], 2)+pow(vector[2], 2));
     }
 
-    void glPoly(vector<vector<int>> points){
+    void glPoly(vector<vector<int>> points, double intensity = 1){
         if (points.size() < 3){
             auto startPoints = points;
             int size = points.size();
@@ -417,7 +418,7 @@ public:
                     glLineCoord(next[0], next[1], prior[0], prior[1]);
                     startPoints.erase(startPoints.begin()+(i+1)%size);
                     size = startPoints.size();
-                    glPaintTriangle(prior, center, next);
+                    glPaintTriangleBC(prior, center, next, intensity);
                     //std::cout << size << '\n';
                 }
             }
@@ -440,7 +441,7 @@ public:
         return (number > 0);
     };
 
-    void glPaintTriangle(vector<int> firstCoord, vector<int> secondCoord, vector<int> thirdCoord){
+    void glPaintTriangle(vector<int> firstCoord, vector<int> secondCoord, vector<int> thirdCoord, double intensity){
         if (firstCoord[1] == secondCoord[1] && thirdCoord[1] > firstCoord[1]){
             glPaintFlatBottomTriangle(thirdCoord, firstCoord, secondCoord);
         } else if (firstCoord[1] == thirdCoord[1] && secondCoord[1] > firstCoord[1]){
@@ -539,16 +540,32 @@ public:
     }
 
     vector<double> glBarycentricCoordinates(vector<int> A, vector<int> B, vector<int> C, vector<int> P){
-        double u = (
-                (double)((B[1]-C[1])*(P[0]-C[0]) + (C[0]-B[0])*(P[1]-C[1]))
-                /
-                ((B[1]-C[1])*(A[0]-C[0]) + (C[0]-B[0])*(A[1]-C[1]))
-                );
+        auto testA = A[0];
+        auto testA1 = A[1];
+        auto testA2 = A[2];
+
+        auto testB = B[0];
+        auto testB1 = B[1];
+        auto testB2 = B[2];
+
+        auto testC = C[0];
+        auto testC1 = C[1];
+        auto testC2 = C[2];
+
+        auto testP = P[0];
+        auto testP1 = P[1];
+        auto testP2 = P[2];
+
+        double u0 = ((double)(B[1]-C[1])*(P[0]-C[0])+(C[0]-B[0])*(P[1]-C[1]));
+
+        double u1 = ((double)(B[1]-C[1])*(A[0]-C[0])+(C[0]-B[0])*(A[1]-C[1]));
+
+        double u = u0/u1;
 
         auto v = (
-                (double)((C[1]-A[1])*(P[0]-C[0]) + (A[0]-C[0])*(P[1]-C[1]))
+                (double)(((C[1]-A[1])*(P[0]-C[0]) + (A[0]-C[0])*(P[1]-C[1])))
                 /
-                ((B[1]-C[1])*(A[0]-C[0]) + (C[0]-B[0])*(A[1]-C[1]))
+                (((B[1]-C[1])*(A[0]-C[0]) + (C[0]-B[0])*(A[1]-C[1])))
         );
 
         auto w = 1 - u - v;
@@ -570,6 +587,51 @@ public:
                         maxZ = zBuffer[i*width+j];
                     }
                 }
+            }
+        }
+
+        double depth;
+        for(int i=0; i<height; i++){
+            for(int j=0; j<width; j++){
+                depth = zBuffer[i*width+j];
+                if (depth == -std::numeric_limits<int>::max()){
+                    depth = minZ;
+                }
+                depth = (depth-minZ)/(maxZ - minZ);
+                glColor({depth, depth, depth});
+                glVertexCoord(i, j);
+            }
+        }
+    }
+
+    void glPaintTriangleBC(vector<int> A, vector<int> B, vector<int> C, double intensity = 1){
+        std::cout << 'h' << '\n';
+        auto minX = std::min(std::min(A[0], B[0]), C[0]);
+        auto minY = std::min(std::min(A[1], B[1]), C[1]);
+        auto maxX = std::max(std::max(A[0], B[0]), C[0]);
+        auto maxY = std::max(std::max(A[1], B[1]), C[1]);
+
+        for (int i = minX; i < maxX+1 ; ++i) {
+            for (int j = minY; j < maxY+1; ++j) {
+                if (i>width || i<0 || j>=height || j<0){
+                    continue;
+                }
+                auto bary = glBarycentricCoordinates(A, B, C, {i, j});
+                auto u = bary[0];
+                auto v = bary[1];
+                auto w = bary[2];
+                if (u >= 0 && v>= 0 && w>=0){
+                    auto z = A[2]*u + B[2]*v + C[2]*w;
+                    if (z > zBuffer[i*width+j]){
+                        double r = 1*intensity;
+                        double g = 1*intensity;
+                        double b = 1*intensity;
+                        glColor({r, g, b});
+                        glVertexCoord(i, j);
+                        zBuffer[i*width+j] = z;
+                    }
+                }
+
             }
         }
     }
